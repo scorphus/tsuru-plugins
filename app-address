@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+
+# Copyright 2016 Pablo Santiago Blum de Aguiar <scorphus@gmail.com>. All rights
+# reserved. Use of this source code is governed by the BSD 2-Clause License that
+# can be found in the LICENSE file.
+
+import argparse
+import json
+import os
+import sys
+
+try:
+    from urllib import request
+except ImportError:
+    import urllib2 as request
+
+
+def fatal(msg):
+    sys.stderr.write(msg + '\n')
+    sys.exit(5)
+
+
+def get_env(name):
+    env = os.environ.get(name)
+    if not env:
+        fatal('ERROR: missing {}'.format(name))
+    return env
+
+
+class Request(request.Request):
+
+    def __init__(self, method, *args, **kwargs):
+        self._method = method
+        request.Request.__init__(self, *args, **kwargs)
+
+    def get_method(self):
+        return self._method
+
+
+def app_request(app, method='GET', body=None, headers=None):
+    target = get_env('TSURU_TARGET').rstrip('/')
+    token = get_env('TSURU_TOKEN')
+
+    if not target.startswith('http://') and not target.startswith('https://'):
+        target = 'http://{}'.format(target)
+
+    url = '{}/apps/{}'.format(target, app)
+
+    req = Request(method, url)
+    req.add_header('Authorization', 'bearer ' + token)
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'text/plain'
+    }
+    if headers:
+        for header, value in headers.items():
+            req.add_header(header, value)
+
+    try:
+        return request.urlopen(req, timeout=30)
+    except Exception as e:
+        fatal('{}'.format(e))
+
+
+def get_app(app):
+    resp = app_request(app)
+    return json.loads(resp.read().decode('utf-8'))
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Show an App's address(es)")
+    parser.add_argument(
+        '-a', '--app',
+        required=True,
+        help='The name of the App',
+    )
+    parser.add_argument(
+        '-o', '--one',
+        action='store_true',
+        help='Show only one URL',
+    )
+    return parser.parse_args()
+
+
+def show_address(address, one):
+    if type(address) is not list:
+        address = [address]
+    if one:
+        print(address[-1])
+    else:
+        print('\n'.join(address))
+
+
+def main():
+    args = parse_args()
+    app = get_app(args.app)
+    address = app.get('cname')
+    if not address:
+        address = app.get('ip')
+    show_address(address, args.one)
+
+
+if __name__ == '__main__':
+    main()
