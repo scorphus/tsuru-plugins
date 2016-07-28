@@ -37,7 +37,7 @@ class Request(request.Request):
         return self._method
 
 
-def app_request(app, method='GET', body=None, headers=None):
+def app_request(app):
     target = get_env('TSURU_TARGET').rstrip('/')
     token = get_env('TSURU_TOKEN')
 
@@ -46,7 +46,7 @@ def app_request(app, method='GET', body=None, headers=None):
 
     url = '{}/apps/{}'.format(target, app)
 
-    req = Request(method, url)
+    req = Request('GET', url)
     req.add_header('Authorization', 'bearer ' + token)
 
     headers = {
