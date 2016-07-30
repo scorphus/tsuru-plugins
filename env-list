@@ -1,0 +1,131 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
+# Copyright 2016 Pablo Santiago Blum de Aguiar <scorphus@gmail.com>. All rights
+# reserved. Use of this source code is governed by the BSD 2-Clause License that
+# can be found in the LICENSE file.
+
+import argparse
+import json
+import logging
+import os
+import sys
+
+try:
+    from urllib import request
+except ImportError:
+    import urllib2 as request
+
+
+def set_logging_level(level):
+    if level > 3:
+        level = 3
+    handler = request.HTTPHandler(debuglevel=level)
+    request.install_opener(request.build_opener(handler))
+    log_level = ['ERROR', 'WARNING', 'INFO', 'DEBUG'][level]
+    logging.basicConfig(
+        level=getattr(logging, log_level), format='%(levelname)-8s %(message)s',
+    )
+
+
+def fatal(msg):
+    logging.error(msg)
+    sys.exit(5)
+
+
+def get_env(name):
+    env = os.environ.get(name)
+    if not env:
+        fatal('ERROR: missing {}'.format(name))
+    return env
+
+
+class Request(request.Request):
+
+    def __init__(self, method, *args, **kwargs):
+        self._method = method
+        request.Request.__init__(self, *args, **kwargs)
+
+    def get_method(self):
+        return self._method
+
+
+def env_request(app, env=None):
+    target = get_env('TSURU_TARGET').rstrip('/')
+    token = get_env('TSURU_TOKEN')
+
+    if not target.startswith('http://') and not target.startswith('https://'):
+        target = 'http://{}'.format(target)
+
+    if env:
+        env = '?' + '&'.join(['env=' + e for e in env])
+
+    url = '{}/apps/{}/env{}'.format(target, app, env or '')
+
+    req = Request('GET', url)
+    req.add_header('Authorization', 'bearer ' + token)
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+    if headers:
+        for header, value in headers.items():
+            req.add_header(header, value)
+
+    try:
+        return request.urlopen(req, timeout=30)
+    except Exception as e:
+        fatal('{}'.format(e))
+
+
+def get_app_vars(app, env):
+    resp = env_request(app, env)
+    return json.loads(resp.read().decode('utf-8'))
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="List an App's environment variables"
+    )
+    parser.add_argument(
+        '-a', '--app',
+        required=True,
+        help='the name of the App',
+    )
+    parser.add_argument(
+        '-p', '--private',
+        action='store_true',
+        help='list private variables',
+    )
+    parser.add_argument(
+        '-v', '--verbose',
+        action='count',
+        default=0,
+        help='Logging level: v=warning, vv=info, vvv=debug',
+    )
+    parser.add_argument(
+        'env',
+        nargs='*',
+        help='environment variables to list',
+    )
+    return parser.parse_args()
+
+
+def show_var(env, private=False):
+    for var in sorted(env, key=lambda e: e['name']):
+        if private or var['public']:
+            print('{name}={value}'.format(**var))
+        else:
+            print('{name}=*** (private variable)'.format(**var))
+
+
+def main():
+    args = parse_args()
+    set_logging_level(args.verbose)
+    env = get_app_vars(args.app, args.env)
+    show_var(env, args.private)
+
+
+if __name__ == '__main__':
+    main()
