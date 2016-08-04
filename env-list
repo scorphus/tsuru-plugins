@@ -113,6 +113,8 @@ def parse_args():
 
 
 def show_var(env, private=False):
+    if not env:
+        return
     for var in sorted(env, key=lambda e: e['name']):
         if private or var['public']:
             print('{name}={value}'.format(**var))
