@@ -1,0 +1,57 @@
+#!/bin/bash
+
+GOREPLAY_VERSION="0.16.1"
+GOREPLAY_URL="https://github.com/buger/goreplay/releases/download/v${GOREPLAY_VERSION}/gor_${GOREPLAY_VERSION}_x64.tar.gz"
+
+case "$1" in
+
+"install") echo "To install, add the following to your tsuru.yaml and deploy your app:"
+    cat << EOF
+hooks:
+    build:
+        - 'sudo apt-get -y install screen'
+        - 'curl -sfSL -o goreplay.tar.gz $GOREPLAY_URL'
+        - 'tar xvf goreplay.tar.gz'
+EOF
+;;
+
+"start") echo "Starting..."
+    tsuru app-run ${@:2:2} "sudo screen -d -m ./goreplay --input-raw :\$PORT ${@:4}"
+    echo "Done!"
+;;
+
+"stop") echo "Stopping..."
+    tsuru app-run ${@:2:2} 'sudo pkill goreplay || exit 0'
+    echo "Done!"
+;;
+
+"options")tsuru app-run ${@:2:2} './goreplay --help || exit 0'
+;;
+
+"version") echo "goreplay plugin 0.1 using GoReplay $GOREPLAY_VERSION"
+;;
+
+*) cat << EOF
+GoReplay is the simplest and safest way to test your app using real traffic before you put it into production. Check out https://goreplay.org/ for more information.
+
+Usage:
+
+	goreplay install
+	goreplay start -a <app_name> <goreplay_options>
+	goreplay stop -a <app_name>
+	goreplay options -a <app_name>
+	goreplay version
+
+The commands are:
+
+	install  Show instructions on installing GoReplay on your App
+	start    Start goreplay on app_name
+	stop     Stop any goreplay proccess running on app_name
+	options  Show GoReplay options from app_name. App is needed to run the binary
+	version  Show plugin and GoReplay versions
+
+Report bugs to: https://github.com/scorphus/tsuru-plugins
+EOF
+;;
+
+esac
