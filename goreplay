@@ -16,8 +16,11 @@ EOF
 ;;
 
 "start") echo "Starting..."
-    tsuru app-run ${@:2:2} "sudo screen -d -m ./goreplay --input-raw :\$PORT ${@:4}"
-    echo "Done!"
+    tsuru app-run ${@:2:2} 'sudo pkill goreplay || exit 0'
+    tsuru app-run ${@:2:2} "sudo screen -d -m ./goreplay --input-raw :\$PORT ${@:4}" \
+        && echo "Done!" || { \
+            echo -e "\nTry placing GoReplay options inside single quotes ;-)" \
+            && exit 1; }
 ;;
 
 "stop") echo "Stopping..."
