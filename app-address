@@ -80,6 +80,11 @@ def parse_args():
         action='store_true',
         help='Show only one URL',
     )
+    parser.add_argument(
+        '-i', '--ip',
+        action='store_true',
+        help='Show the "IP" URL',
+    )
     return parser.parse_args()
 
 
@@ -95,8 +100,8 @@ def show_address(address, one):
 def main():
     args = parse_args()
     app = get_app(args.app)
-    address = app.get('cname')
-    if not address:
+    address = app.get('cname', [])
+    if not address or args.ip:
         address = app.get('ip')
     else:
         address.insert(0, app.get('ip'))
