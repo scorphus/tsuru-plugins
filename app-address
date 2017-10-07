@@ -98,6 +98,8 @@ def main():
     address = app.get('cname')
     if not address:
         address = app.get('ip')
+    else:
+        address.insert(0, app.get('ip'))
     show_address(address, args.one)
 
 
